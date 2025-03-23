@@ -13,6 +13,7 @@ from langgraph.types import Command, interrupt
 
 import os
 import json
+import requests
 
 from decouple import Config, RepositoryEnv
 
@@ -43,34 +44,33 @@ def journalist_profile(name_of_journalist: str) -> str:
 
 # find nearby places of interest
 @tool
-def find_places(where_to_find: str, type_of_place_to_find_in_singular_form: str) -> str:
+def find_places(where_to_find: str, type_of_place_to_find: str) -> str:
     """use this function to find nearby places of interest."""
     # Im in dha phase 6, lahore. find good restaurants nearby
     print("\nFIND_PLACES TOOL CALLED-X-X-X-X\n")
-    import googlemaps
-    GMAPS_API_KEY = secrets("GMAPS_API_KEY")
-    gmaps = googlemaps.Client(key=GMAPS_API_KEY)
-    geocode_result = gmaps.geocode(where_to_find)
-    location = geocode_result[0]['geometry']['location']
-    places_result = gmaps.places_nearby(location=location, type=type_of_place_to_find_in_singular_form, radius=1000)["results"]
-  
-        for place in places_result:
-            details = gmaps.place(place_id=place['place_id'])['result']
+    GOOGLE_API_KEY = secrets("GOOGLE_API_KEY")
+    GOOGLE_SEARCH_ENGINE_ID = secrets("GOOGLE_SEARCH_ENGINE_ID")
 
-            # Print additional details
-            print(f"Number of Reviews: {details.get('user_ratings_total', 'N/A')}")
-            if 'opening_hours' in details:
-                print("Business Hours:")
-                for day in details['opening_hours'].get('weekday_text', []):
-                    print(day)
-            else:
-                print("Business Hours not available.")
-                
-            print("\n")  # Add space between different places
-            
-    return ("Following is a list of relevant places I found. Prepare a new list containing only those places whose address includes "
-            f"{where_to_find}: {places_result}"
-            )
+    url = 'https://www.googleapis.com/customsearch/v1'
+    query = f"{type_of_place_to_find} near {where_to_find}. Mention their reviews, ratings, business hours and cuisine."
+    # Set parameters for the request
+    params = {
+        'key': GOOGLE_API_KEY,
+        'cx': GOOGLE_SEARCH_ENGINE_ID,
+        'q': query,
+    }
+    
+    # Make a GET request to fetch search results
+    response = requests.get(url, params=params)
+    
+    # Check if request was successful
+    if response.status_code == 200:
+        return ("Following is a list of places I found. For each place, extract the following details: name, address, number of reviews, rating, business hours."
+                f"{response.json()}"
+        )
+    else:
+        return "server error"
+
 
 os.environ["TAVILY_API_KEY"] = TAVILY_API_KEY
 tool = TavilySearchResults(max_results=2)
